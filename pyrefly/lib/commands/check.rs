@@ -270,7 +270,8 @@ struct OutputArgs {
 
     /// By default show a progress bar and the number of errors.
     /// Pass `--summary` to additionally show information about lines checked and time/memory,
-    /// or `--summary=none` to hide the progress bar and summary line entirely.
+    /// `--summary=info` to show that information without a progress bar,
+    /// or `--summary=none` to hide the progress bar and summary lines entirely.
     #[arg(
         long,
         default_missing_value = "full",
@@ -295,12 +296,27 @@ struct OutputArgs {
     update_baseline: bool,
 }
 
-#[derive(Clone, Debug, ValueEnum, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, ValueEnum, Default, PartialEq, Eq)]
 enum Summary {
     None,
     #[default]
     Default,
+    Info,
     Full,
+}
+
+impl Summary {
+    fn shows_progress_bar(self) -> bool {
+        matches!(self, Summary::Default | Summary::Full)
+    }
+
+    fn shows_error_count(self) -> bool {
+        self != Summary::None
+    }
+
+    fn shows_full_stats(self) -> bool {
+        matches!(self, Summary::Info | Summary::Full)
+    }
 }
 
 /// non-config type checker behavior
@@ -818,11 +834,11 @@ impl CheckArgs {
         let mut memory_trace = MemoryUsageTrace::start(Duration::from_secs_f32(0.1));
 
         let type_check_start = Instant::now();
-        if self.output.summary != Summary::None {
+        if self.output.summary.shows_progress_bar() {
             transaction.set_subscriber(Some(Box::new(ProgressBarSubscriber::new())));
         }
         transaction.run(handles, require, None);
-        if self.output.summary != Summary::None {
+        if self.output.summary.shows_progress_bar() {
             transaction.set_subscriber(None);
         }
 
@@ -926,7 +942,7 @@ impl CheckArgs {
         }
         timings.report_errors = report_errors_start.elapsed();
 
-        if self.output.summary != Summary::None {
+        if self.output.summary.shows_error_count() {
             let suppress_count = errors.suppressed.len();
             if suppress_count == 0 {
                 info!("{}", count(shown_errors_count, "error"))
@@ -938,7 +954,7 @@ impl CheckArgs {
                 )
             };
         }
-        if self.output.summary == Summary::Full {
+        if self.output.summary.shows_full_stats() {
             let user_handles: HashSet<&Handle> = handles.iter().collect();
             let (user_lines, dep_lines) = transaction.split_line_count(&user_handles);
             info!(
@@ -1050,6 +1066,25 @@ mod tests {
             msg,
             ErrorKind::BadAssignment,
         )
+    }
+
+    #[test]
+    fn summary_mode_policies_match_cli_contract() {
+        assert!(!Summary::None.shows_progress_bar());
+        assert!(!Summary::None.shows_error_count());
+        assert!(!Summary::None.shows_full_stats());
+
+        assert!(Summary::Default.shows_progress_bar());
+        assert!(Summary::Default.shows_error_count());
+        assert!(!Summary::Default.shows_full_stats());
+
+        assert!(!Summary::Info.shows_progress_bar());
+        assert!(Summary::Info.shows_error_count());
+        assert!(Summary::Info.shows_full_stats());
+
+        assert!(Summary::Full.shows_progress_bar());
+        assert!(Summary::Full.shows_error_count());
+        assert!(Summary::Full.shows_full_stats());
     }
 
     #[test]
