@@ -74,6 +74,7 @@ use crate::error::context::TypeCheckKind;
 use crate::error::signature_diff::render_signature_diff;
 use crate::solver::solver::SubsetError;
 use crate::types::annotation::Annotation;
+use crate::types::annotation::DisplayName;
 use crate::types::annotation::Qualifier;
 use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
@@ -833,6 +834,7 @@ impl ClassField {
                     Some(Annotation {
                         ty: Some(ty),
                         qualifiers,
+                        ..
                     }),
                 ..
             } => Some(TypedDictField {
@@ -855,6 +857,7 @@ impl ClassField {
                     Some(Annotation {
                         ty: Some(ty),
                         qualifiers,
+                        ..
                     }),
                 ..
             } => Some(TypedDictField {
@@ -2303,6 +2306,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             (inherited, Some(qualifiers)) => Some(Annotation {
                 ty: inherited.and_then(|ann| ann.ty),
                 qualifiers: qualifiers.clone(),
+                display_name: DisplayName::default(),
             }),
             (ann, None) => ann,
         }

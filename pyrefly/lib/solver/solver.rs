@@ -623,6 +623,7 @@ impl Solver {
             if let Some(Callable {
                 params: Params::ParamSpec(ts, pspec),
                 ret,
+                ..
             }) = callable
             {
                 let new_callable = |c| {
@@ -655,7 +656,7 @@ impl Solver {
                 }
             } else if let Some(Callable {
                 params: Params::List(param_list),
-                ret: _,
+                ..
             }) = callable
             {
                 // When a VarArg has a concrete unpacked tuple, expand it to positional-only params

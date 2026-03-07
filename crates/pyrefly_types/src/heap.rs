@@ -24,6 +24,7 @@ use crate::callable::Callable;
 use crate::callable::Function;
 use crate::callable::Param;
 use crate::callable::ParamList;
+use crate::callable::ParamTypeAliases;
 use crate::callable::Params;
 use crate::callable::Required;
 use crate::class::Class;
@@ -152,7 +153,11 @@ impl TypeHeap {
 
     /// Create a `Type::Callable` from params and return type.
     pub fn mk_callable(&self, params: Params, ret: Type) -> Type {
-        Type::Callable(Box::new(Callable { params, ret }))
+        Type::Callable(Box::new(Callable {
+            params,
+            ret,
+            param_type_aliases: ParamTypeAliases::default(),
+        }))
     }
 
     /// Create a `Type::Callable` from an existing Callable.
