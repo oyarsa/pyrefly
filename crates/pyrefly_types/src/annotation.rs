@@ -15,6 +15,7 @@ use parse_display::Display;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
 use pyrefly_util::display::intersperse_iter;
+use ruff_python_ast::name::Name;
 
 use crate::types::AnyStyle;
 use crate::types::Substitution;
@@ -24,6 +25,40 @@ use crate::types::Type;
 pub struct Annotation {
     pub qualifiers: Vec<Qualifier>,
     pub ty: Option<Type>,
+    /// Display-only: the name of the type alias used in the annotation, if any.
+    /// Not used for type checking. Implements VisitMut/TypeEq as no-ops.
+    pub display_name: DisplayName,
+}
+
+/// A display-only wrapper for an optional type alias name.
+/// Implements VisitMut and TypeEq as no-ops so it can be included in derived impls
+/// without affecting type checking behavior.
+#[derive(Debug, Clone, Default)]
+pub struct DisplayName(pub Option<Name>);
+
+impl DisplayName {
+    pub fn as_ref(&self) -> Option<&Name> {
+        self.0.as_ref()
+    }
+}
+
+/// Display-only metadata: always equal for type checking purposes.
+impl PartialEq for DisplayName {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
+impl Eq for DisplayName {}
+
+impl<To> pyrefly_util::visit::VisitMut<To> for DisplayName {
+    fn recurse_mut(&mut self, _f: &mut dyn FnMut(&mut To)) {}
+}
+
+impl crate::equality::TypeEq for DisplayName {
+    fn type_eq(&self, _other: &Self, _ctx: &mut crate::equality::TypeEqCtx) -> bool {
+        true
+    }
 }
 
 impl Display for Annotation {
@@ -48,6 +83,7 @@ impl Annotation {
         Self {
             qualifiers: Vec::new(),
             ty: Some(ty),
+            display_name: DisplayName::default(),
         }
     }
 
@@ -75,6 +111,7 @@ impl Annotation {
         Self {
             qualifiers: self.qualifiers,
             ty: self.ty.map(|ty| substitution.substitute_into(ty)),
+            display_name: self.display_name,
         }
     }
 }
@@ -101,7 +138,8 @@ mod tests {
         assert_eq!(
             Annotation {
                 qualifiers: Vec::new(),
-                ty: Some(Type::None)
+                ty: Some(Type::None),
+                display_name: DisplayName::default(),
             }
             .to_string(),
             "None"
@@ -109,7 +147,8 @@ mod tests {
         assert_eq!(
             Annotation {
                 qualifiers: vec![Qualifier::Required, Qualifier::ReadOnly],
-                ty: None
+                ty: None,
+                display_name: DisplayName::default(),
             }
             .to_string(),
             "Required[ReadOnly]"
@@ -118,6 +157,7 @@ mod tests {
             Annotation {
                 qualifiers: vec![Qualifier::Required, Qualifier::ReadOnly],
                 ty: Some(Type::LiteralString(LitStyle::Implicit)),
+                display_name: DisplayName::default(),
             }
             .to_string(),
             "Required[ReadOnly[LiteralString]]"

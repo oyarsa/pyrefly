@@ -47,6 +47,7 @@ use crate::types::callable::FuncMetadata;
 use crate::types::callable::Function;
 use crate::types::callable::FunctionKind;
 use crate::types::callable::ParamList;
+use crate::types::callable::ParamTypeAliases;
 use crate::types::callable::Params;
 use crate::types::class::ClassType;
 use crate::types::keywords::KwCall;
@@ -261,6 +262,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Callable {
                                 params: Params::List(ParamList::new(vec![])),
                                 ret: Type::Quantified(quantified),
+                                param_type_aliases: ParamTypeAliases::default(),
                             },
                         ))
                     }
@@ -285,6 +287,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             // TODO: use upper bound to determine input parameters
                             params: Params::Ellipsis,
                             ret: Type::Quantified(quantified),
+                            param_type_aliases: ParamTypeAliases::default(),
                         },
                     )),
                 };

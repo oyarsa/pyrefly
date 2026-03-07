@@ -1056,6 +1056,7 @@ impl<'a, Ans: LookupAnswer> Subset<'a, Ans> {
         if let Type::Callable(box Callable {
             params: Params::List(params),
             ret,
+            ..
         }) = want
             && params
                 .items()

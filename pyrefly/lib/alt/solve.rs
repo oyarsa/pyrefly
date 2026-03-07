@@ -131,6 +131,7 @@ use crate::export::special::SpecialExport;
 use crate::solver::solver::PinError;
 use crate::solver::solver::SubsetError;
 use crate::types::annotation::Annotation;
+use crate::types::annotation::DisplayName;
 use crate::types::annotation::Qualifier;
 use crate::types::callable::Callable;
 use crate::types::callable::Function;
@@ -450,6 +451,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Annotation {
                     qualifiers: vec![qualifier],
                     ty: Some(self.expr_infer(&x.slice, errors)),
+                    display_name: DisplayName::default(),
                 }
             }
             _ => Annotation::new_type(self.expr_infer(x, errors)),
@@ -615,6 +617,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         false
     }
 
+    /// If the annotation expression refers to a type alias, return its name.
+    /// Used to preserve alias names for display purposes.
+    fn type_alias_name_from_annotation(&self, x: &Expr) -> Option<Name> {
+        let inferred = self.expr_infer(x, &self.error_swallower());
+        match &inferred {
+            Type::TypeAlias(ta) => Some((*self.get_type_alias(ta).name).clone()),
+            _ => None,
+        }
+    }
+
     fn expr_annotation(
         &self,
         x: &Expr,
@@ -647,6 +659,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Annotation {
                     qualifiers: vec![qualifier],
                     ty: None,
+                    display_name: DisplayName::default(),
                 }
             }
             Expr::Subscript(x)
@@ -720,6 +733,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ann
             }
             _ => {
+                // Capture type alias name before untype resolves it away.
+                let alias_name = self.type_alias_name_from_annotation(x);
                 let ann_ty = self.expr_untype(x, type_form_context, errors);
                 if let Type::SpecialForm(special_form) = ann_ty
                     && !type_form_context.is_valid_unparameterized_annotation(special_form)
@@ -740,7 +755,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         );
                     }
                 }
-                Annotation::new_type(ann_ty)
+                Annotation {
+                    qualifiers: Vec::new(),
+                    ty: Some(ann_ty),
+                    display_name: DisplayName(alias_name),
+                }
             }
         }
     }
@@ -2332,6 +2351,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 Annotation {
                                     ty: Some(want),
                                     qualifiers: _,
+                                    ..
                                 },
                         } = &*self.get_idx(*k)
                     {
@@ -3893,6 +3913,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     Annotation {
                         ty: Some(want),
                         qualifiers: _,
+                        ..
                     },
             } = &*self.get_idx(k)
         {
@@ -4704,6 +4725,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Annotation {
                                 ty: Some(want),
                                 qualifiers: _,
+                                ..
                             },
                     } = &*self.get_idx(*k)
                 {
@@ -4726,6 +4748,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Annotation {
                                 ty: Some(want),
                                 qualifiers: _,
+                                ..
                             },
                     } = &*self.get_idx(*k)
                 {

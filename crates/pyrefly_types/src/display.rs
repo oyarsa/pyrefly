@@ -1125,6 +1125,7 @@ pub mod tests {
     use crate::callable::Function;
     use crate::callable::Param;
     use crate::callable::ParamList;
+    use crate::callable::ParamTypeAliases;
     use crate::callable::Params;
     use crate::callable::Required;
     use crate::class::Class;
@@ -2013,6 +2014,7 @@ def overloaded_func[T](
                 Type::Callable(Box::new(Callable {
                     params: Params::Ellipsis,
                     ret: Type::None,
+                    param_type_aliases: ParamTypeAliases::default(),
                 })),
                 Type::any_explicit(),
             ],

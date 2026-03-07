@@ -25,6 +25,7 @@ use pyrefly_types::callable::FuncFlags;
 use pyrefly_types::callable::FuncId;
 use pyrefly_types::callable::FunctionKind;
 use pyrefly_types::callable::Param;
+use pyrefly_types::callable::ParamTypeAliases;
 use pyrefly_types::class::Class;
 use pyrefly_types::keywords::TypeMap;
 use pyrefly_types::quantified::Quantified;
@@ -60,6 +61,8 @@ pub struct UndecoratedFunction {
     /// Maps parameter names to their resolved types - used to connect
     /// FunctionParameter and KeyUndecoratedFunction.
     pub resolved_param_types: SmallMap<Name, Type>,
+    /// Display-only: maps param names to their type alias display names.
+    pub param_type_aliases: ParamTypeAliases,
 }
 
 /// A value that combines the metadata of a function def and also provides the type of the function
@@ -131,6 +134,7 @@ impl UndecoratedFunction {
             stub_or_impl: FunctionStubOrImpl::Stub,
             defining_cls: None,
             resolved_param_types: SmallMap::new(),
+            param_type_aliases: ParamTypeAliases::default(),
         }
     }
 

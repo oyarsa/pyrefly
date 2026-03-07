@@ -40,11 +40,66 @@ use crate::keywords::DataclassTransformMetadata;
 use crate::type_output::TypeOutput;
 use crate::types::Type;
 
+/// Display-only metadata mapping parameter names to type alias display names.
+/// Transparent to Visit/VisitMut/TypeEq — only affects how param types are rendered.
+#[derive(Debug, Clone, Default)]
+pub struct ParamTypeAliases(pub Vec<(Name, Name)>);
+
+impl ParamTypeAliases {
+    pub fn get(&self, param_name: &Name) -> Option<&Name> {
+        self.0
+            .iter()
+            .find(|(name, _)| name == param_name)
+            .map(|(_, alias)| alias)
+    }
+}
+
+impl PartialEq for ParamTypeAliases {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+
+impl Eq for ParamTypeAliases {}
+
+impl PartialOrd for ParamTypeAliases {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ParamTypeAliases {
+    fn cmp(&self, _other: &Self) -> std::cmp::Ordering {
+        std::cmp::Ordering::Equal
+    }
+}
+
+impl Hash for ParamTypeAliases {
+    fn hash<H: Hasher>(&self, _state: &mut H) {}
+}
+
+impl<To> pyrefly_util::visit::Visit<To> for ParamTypeAliases {
+    fn recurse<'a>(&'a self, _f: &mut dyn FnMut(&'a To)) {}
+}
+
+impl<To> pyrefly_util::visit::VisitMut<To> for ParamTypeAliases {
+    fn recurse_mut(&mut self, _f: &mut dyn FnMut(&mut To)) {}
+}
+
+impl TypeEq for ParamTypeAliases {
+    fn type_eq(&self, _other: &Self, _ctx: &mut TypeEqCtx) -> bool {
+        true
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Visit, VisitMut, TypeEq)]
 pub struct Callable {
     pub params: Params,
     pub ret: Type,
+    /// Display-only: maps parameter names to type alias display names.
+    /// Not used for type checking. Transparent to Visit/VisitMut/TypeEq.
+    pub param_type_aliases: ParamTypeAliases,
 }
 
 impl Display for Callable {
@@ -128,6 +183,15 @@ impl ParamList {
         output: &mut O,
         write_type: &impl Fn(&Type, &mut O) -> fmt::Result,
     ) -> fmt::Result {
+        self.fmt_with_type_and_aliases(output, write_type, &ParamTypeAliases::default())
+    }
+
+    pub fn fmt_with_type_and_aliases<O: TypeOutput>(
+        &self,
+        output: &mut O,
+        write_type: &impl Fn(&Type, &mut O) -> fmt::Result,
+        aliases: &ParamTypeAliases,
+    ) -> fmt::Result {
         let mut named_posonly = false;
         let mut kwonly = false;
         for (i, param) in self.0.iter().enumerate() {
@@ -144,7 +208,8 @@ impl ParamList {
                 kwonly = true;
                 output.write_str("*, ")?;
             }
-            param.fmt_with_type(output, write_type)?;
+            let alias = param.name().and_then(|n| aliases.get(n));
+            param.fmt_with_type_and_alias(output, write_type, alias)?;
         }
         if named_posonly {
             output.write_str(", /")?;
@@ -157,6 +222,19 @@ impl ParamList {
         &self,
         output: &mut O,
         write_type: &impl Fn(&Type, &mut O) -> fmt::Result,
+    ) -> fmt::Result {
+        self.fmt_with_type_with_newlines_and_aliases(
+            output,
+            write_type,
+            &ParamTypeAliases::default(),
+        )
+    }
+
+    pub fn fmt_with_type_with_newlines_and_aliases<O: TypeOutput>(
+        &self,
+        output: &mut O,
+        write_type: &impl Fn(&Type, &mut O) -> fmt::Result,
+        aliases: &ParamTypeAliases,
     ) -> fmt::Result {
         let mut named_posonly = false;
         let mut kwonly = false;
@@ -178,7 +256,8 @@ impl ParamList {
                 output.write_str("*,\n    ")?;
             }
 
-            param.fmt_with_type(output, write_type)?;
+            let alias = param.name().and_then(|n| aliases.get(n));
+            param.fmt_with_type_and_alias(output, write_type, alias)?;
         }
 
         if named_posonly {
@@ -602,7 +681,7 @@ impl Callable {
         match &self.params {
             Params::List(params) => {
                 output.write_str("(")?;
-                params.fmt_with_type(output, write_type)?;
+                params.fmt_with_type_and_aliases(output, write_type, &self.param_type_aliases)?;
                 output.write_str(") -> ")?;
                 write_type(&self.ret, output)
             }
@@ -661,7 +740,11 @@ impl Callable {
             Params::List(params) if params.len() > 1 => {
                 // For multiple parameters, put each on a new line with indentation
                 output.write_str("(\n    ")?;
-                params.fmt_with_type_with_newlines(output, write_type)?;
+                params.fmt_with_type_with_newlines_and_aliases(
+                    output,
+                    write_type,
+                    &self.param_type_aliases,
+                )?;
                 output.write_str("\n) -> ")?;
                 write_type(&self.ret, output)
             }
@@ -676,6 +759,7 @@ impl Callable {
         Self {
             params: Params::List(params),
             ret,
+            param_type_aliases: ParamTypeAliases::default(),
         }
     }
 
@@ -683,6 +767,7 @@ impl Callable {
         Self {
             params: Params::Ellipsis,
             ret,
+            param_type_aliases: ParamTypeAliases::default(),
         }
     }
 
@@ -690,6 +775,7 @@ impl Callable {
         Self {
             params: Params::ParamSpec(Box::default(), p),
             ret,
+            param_type_aliases: ParamTypeAliases::default(),
         }
     }
 
@@ -697,6 +783,7 @@ impl Callable {
         Self {
             params: Params::ParamSpec(args, param_spec),
             ret,
+            param_type_aliases: ParamTypeAliases::default(),
         }
     }
 
@@ -705,6 +792,7 @@ impl Callable {
             Self {
                 params: Params::List(params),
                 ret,
+                ..
             } => {
                 let (first, rest) = params.split_first()?;
                 Some((first, Self::list(rest, ret.clone())))
@@ -712,6 +800,7 @@ impl Callable {
             Self {
                 params: Params::ParamSpec(ts, p),
                 ret,
+                ..
             } => {
                 let ((first, _), rest) = ts.split_first()?;
                 Some((
@@ -721,7 +810,7 @@ impl Callable {
             }
             Self {
                 params: Params::Ellipsis,
-                ret: _,
+                ..
             } => Some((owner.push(Type::any_implicit()), self.clone())),
             _ => None,
         }
@@ -731,7 +820,7 @@ impl Callable {
         match self {
             Self {
                 params: Params::List(params),
-                ret: _,
+                ..
             } if let Some(param) = params.items().first() => match param {
                 Param::PosOnly(_, ty, _) | Param::Pos(_, ty, _) | Param::VarArg(_, ty) => {
                     Some(ty.clone())
@@ -740,11 +829,11 @@ impl Callable {
             },
             Self {
                 params: Params::ParamSpec(ts, _),
-                ret: _,
+                ..
             } => ts.first().cloned().map(|x| x.0),
             Self {
                 params: Params::Ellipsis,
-                ret: _,
+                ..
             } => Some(Type::any_implicit()),
             _ => None,
         }
@@ -755,7 +844,8 @@ impl Callable {
             self,
             Self {
                 params: _,
-                ret: Type::TypeGuard(_)
+                ret: Type::TypeGuard(_),
+                ..
             }
         )
     }
@@ -766,6 +856,7 @@ impl Callable {
             Self {
                 params: _,
                 ret: Type::TypeIs(_),
+                ..
             }
         )
     }
@@ -844,6 +935,23 @@ impl Param {
                 output.write_str("**")?;
                 write_type(ty, output)
             }
+        }
+    }
+
+    /// Like `fmt_with_type`, but when `alias` is `Some`, writes the alias name
+    /// instead of the resolved type.
+    pub fn fmt_with_type_and_alias<O: TypeOutput>(
+        &self,
+        output: &mut O,
+        write_type: &impl Fn(&Type, &mut O) -> fmt::Result,
+        alias: Option<&Name>,
+    ) -> fmt::Result {
+        match alias {
+            Some(alias_name) => {
+                let write_alias = |_ty: &Type, o: &mut O| o.write_str(alias_name.as_str());
+                self.fmt_with_type(output, &write_alias)
+            }
+            None => self.fmt_with_type(output, write_type),
         }
     }
 

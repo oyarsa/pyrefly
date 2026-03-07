@@ -1258,3 +1258,40 @@ f(x=1.0)
         "Expected hover to show negative float default '-1.5', got: {report}"
     );
 }
+
+#[test]
+fn hover_preserves_type_alias_in_function_params() {
+    // type statement alias
+    let code = r#"
+type Messages = list[str]
+
+def func(msgs: Messages) -> None:
+    pass
+
+func
+#^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert!(
+        report.contains("msgs: Messages"),
+        "Expected hover to preserve type alias 'Messages', got: {report}"
+    );
+
+    // TypeAlias form
+    let code2 = r#"
+from typing import TypeAlias
+
+Messages: TypeAlias = list[str]
+
+def func(msgs: Messages) -> None:
+    pass
+
+func
+#^
+"#;
+    let report2 = get_batched_lsp_operations_report(&[("main", code2)], get_test_report);
+    assert!(
+        report2.contains("msgs: Messages"),
+        "Expected hover to preserve TypeAlias 'Messages', got: {report2}"
+    );
+}
