@@ -535,6 +535,7 @@ impl<'a> BindingsBuilder<'a> {
                 tparams: TypeAliasParams::Legacy(tparams),
                 key_type_alias: idx_type_alias,
                 range,
+                docstring_range,
             }))
         } else {
             Binding::NameAssign(Box::new(NameAssign {

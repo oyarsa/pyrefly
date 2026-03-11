@@ -417,7 +417,8 @@ impl<'a> DefinitionsBuilder<'a> {
         for (i, x) in xs.iter().enumerate() {
             self.stmt(x);
             // PEP 257-style variable docstrings: a standalone string literal expression
-            // immediately following an assignment statement is treated as the variable's docstring.
+            // immediately following an assignment or type alias statement is treated as the
+            // defined name's docstring.
             if let Some(Stmt::Expr(e)) = xs.get(i + 1)
                 && let Expr::StringLiteral(_) = e.value.as_ref()
             {
@@ -427,6 +428,9 @@ impl<'a> DefinitionsBuilder<'a> {
                     }
                     Stmt::AnnAssign(assign) => {
                         self.set_var_docstring([assign.target.as_ref()], e.range())
+                    }
+                    Stmt::TypeAlias(assign) => {
+                        self.set_var_docstring([assign.name.as_ref()], e.range())
                     }
                     _ => {}
                 }

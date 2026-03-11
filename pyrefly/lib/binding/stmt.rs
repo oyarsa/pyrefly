@@ -433,6 +433,7 @@ impl<'a> BindingsBuilder<'a> {
             },
             key_type_alias: idx_type_alias,
             range: call.range(),
+            docstring_range: None,
         }));
         self.insert_binding_current(assigned, binding);
     }
@@ -864,6 +865,7 @@ impl<'a> BindingsBuilder<'a> {
                         tparams: TypeAliasParams::Scoped(x.type_params.map(|x| *x)),
                         key_type_alias: idx_type_alias,
                         range,
+                        docstring_range: var_docstring,
                     }));
                     self.bind_definition(
                         &Ast::expr_name_identifier(name),

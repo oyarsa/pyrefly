@@ -1985,6 +1985,9 @@ pub struct TypeAliasBinding {
     pub tparams: TypeAliasParams,
     pub key_type_alias: Idx<KeyTypeAlias>,
     pub range: TextRange,
+    /// If a standalone string literal immediately follows this alias definition,
+    /// this holds its range.
+    pub docstring_range: Option<TextRange>,
 }
 
 /// Data for a type alias reference binding.

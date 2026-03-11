@@ -471,3 +471,89 @@ Docstring Result: `Some documentation.`
         report.trim(),
     );
 }
+
+#[test]
+fn legacy_type_alias_docstring_definition_site_test() {
+    let code = r#"
+from typing import TypeAlias
+
+Text: TypeAlias = str
+#^
+"""Alias."""
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], test_report_factory(code));
+    assert_eq!(
+        r#"
+# main.py
+4 | Text: TypeAlias = str
+     ^
+Docstring Result: `Alias.`
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn legacy_type_alias_docstring_usage_site_test() {
+    let code = r#"
+from typing import TypeAlias
+
+Text: TypeAlias = str
+"""Alias."""
+print(Text)
+#     ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], test_report_factory(code));
+    assert_eq!(
+        r#"
+# main.py
+6 | print(Text)
+          ^
+Docstring Result: `Alias.`
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn type_statement_docstring_definition_site_test() {
+    let code = r#"
+type Text = str
+#     ^
+"""Alias."""
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], test_report_factory(code));
+    assert_eq!(
+        r#"
+# main.py
+2 | type Text = str
+          ^
+Docstring Result: `Alias.`
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn type_statement_docstring_usage_site_test() {
+    let code = r#"
+type Text = str
+"""Alias."""
+print(Text)
+#     ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], test_report_factory(code));
+    assert_eq!(
+        r#"
+# main.py
+4 | print(Text)
+          ^
+Docstring Result: `Alias.`
+"#
+        .trim(),
+        report.trim(),
+    );
+}

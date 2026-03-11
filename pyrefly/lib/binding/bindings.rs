@@ -943,15 +943,16 @@ impl<'a> BindingsBuilder<'a> {
         let mut iter = xs.into_iter().peekable();
         while let Some(x) = iter.next() {
             // PEP 257-style variable docstrings: a standalone string literal immediately
-            // following an assignment is the variable's docstring.
-            let var_docstring = if matches!(x, Stmt::Assign(_) | Stmt::AnnAssign(_))
-                && let Some(Stmt::Expr(e)) = iter.peek()
-                && let Expr::StringLiteral(_) = e.value.as_ref()
-            {
-                Some(e.range())
-            } else {
-                None
-            };
+            // following an assignment or type alias definition is that name's docstring.
+            let var_docstring =
+                if matches!(x, Stmt::Assign(_) | Stmt::AnnAssign(_) | Stmt::TypeAlias(_))
+                    && let Some(Stmt::Expr(e)) = iter.peek()
+                    && let Expr::StringLiteral(_) = e.value.as_ref()
+                {
+                    Some(e.range())
+                } else {
+                    None
+                };
 
             self.stmt(x, parent, var_docstring);
         }
